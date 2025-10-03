@@ -27,6 +27,7 @@
 #include "enmod/PolicyBlendingSolver.h"
 // CPS simulator
 #include "enmod/CPSController.h"
+#include "enmod/MultiAgentCPSController.h"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -103,20 +104,9 @@ int main() {
         std::cout << "Log file created at: logs/enmod_simulation.log\n";
         std::cout << "Reports will be generated in: " << report_root_path << "\n";
 
-         // --- Run the standard comparison of all solvers ---
-        std::vector<json> scenarios;
-        scenarios.push_back(ScenarioGenerator::generate(10, "10x10"));
-        std::vector<Result> all_results;
-        for (const auto& config : scenarios) {
-            runScenario(config, report_root_path, all_results);
-        }
-        
-        HtmlReportGenerator::generateSummaryReport(all_results, report_root_path);
-        std::cout << "\nComparison simulation complete. Summary written to " << report_root_path << "/_Summary_Report.html\n";
-
-        // --- Run the new real-time CPS simulation ---
-        json cps_scenario = ScenarioGenerator::generate(15, "15x15_CPS");
-        CPSController cps_controller(cps_scenario);
+        // --- Run the new real-time Multi-Agent CPS simulation ---
+        json cps_scenario = ScenarioGenerator::generate(20, "20x20_MultiAgent_CPS");
+        MultiAgentCPSController cps_controller(cps_scenario, report_root_path, 5); // 5 agents
         cps_controller.run_simulation();
 
         Logger::log(LogLevel::INFO, "Application Finished Successfully");
