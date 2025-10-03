@@ -1,12 +1,12 @@
-#ifndef ENMOD_INTERLACED_SOLVER_H
-#define ENMOD_INTERLACED_SOLVER_H
+#ifndef ENMOD_ADAPTIVE_COST_SOLVER_H
+#define ENMOD_ADAPTIVE_COST_SOLVER_H
 
 #include "DynamicSolver.h"
 #include "Types.h"
 
-class InterlacedSolver : public Solver {
+class AdaptiveCostSolver : public Solver {
 public:
-    InterlacedSolver(const Grid& grid_ref);
+    AdaptiveCostSolver(const Grid& grid_ref);
     void run() override;
     Cost getEvacuationCost() const override;
     void generateReport(std::ofstream& report_file) const override;
@@ -19,4 +19,4 @@ private:
     void assessThreatAndSetMode(const Position& current_pos, const Grid& current_grid);
 };
 
-#endif // ENMOD_INTERLACED_SOLVER_H
+#endif // ENMOD_ADAPTIVE_COST_SOLVER_H

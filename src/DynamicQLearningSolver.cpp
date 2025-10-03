@@ -74,4 +74,3 @@ void DynamicQLearningSolver::generateReport(std::ofstream& report_file) const {
         report_file << step.grid_state.toHtmlStringWithAgent(step.agent_pos);
     }
 }
-

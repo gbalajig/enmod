@@ -21,7 +21,7 @@ public:
 
 protected:
     void generatePolicyFromValueTable();
-    void train(int episodes); 
+    virtual void train(int episodes); 
 
     ValueTable value_table;
     Policy policy;
@@ -32,4 +32,3 @@ protected:
 };
 
 #endif // ENMOD_RL_SOLVER_H
-

@@ -6,6 +6,11 @@
 
 QLearningSolver::QLearningSolver(const Grid& grid_ref, const std::string& name) : RLSolver(grid_ref, name) {}
 
+void QLearningSolver::run() {
+    train(5000);
+    generatePolicyFromValueTable();
+}
+
 Direction QLearningSolver::chooseAction(const Position& state) {
     static std::mt19937 rng(static_cast<unsigned int>(std::chrono::steady_clock::now().time_since_epoch().count()));
     std::uniform_real_distribution<> dist(0.0, 1.0);
@@ -29,6 +34,10 @@ void QLearningSolver::update(const Position& s, Direction a, double r, const Pos
     value_table[s][static_cast<int>(a)] = new_value;
 }
 
+void QLearningSolver::train(int episodes) {
+    RLSolver::train(episodes);
+}
+
 Cost QLearningSolver::getEvacuationCost() const {
     Position current = grid.getStartPosition();
     Cost total_cost = {0, 0, 0};
@@ -50,4 +59,3 @@ void QLearningSolver::generateReport(std::ofstream& report_file) const {
     report_file << "<p>This policy was learned over 5000 episodes.</p>\n";
     report_file << grid.toHtmlStringWithPolicy(policy);
 }
-

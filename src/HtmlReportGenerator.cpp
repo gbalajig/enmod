@@ -28,9 +28,11 @@ void writeHtmlHeader(std::ofstream& file, const std::string& title) {
     file << "@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }\n";
     file << "</style>\n</head>\n<body>\n<div class='container'>\n";
 }
+
 void writeHtmlFooter(std::ofstream& file) {
     file << "</div>\n</body>\n</html>";
 }
+
 void HtmlReportGenerator::generateInitialGridReport(const Grid& grid, const std::string& path) {
     std::string file_path = path + "/_Initial_Grid.html";
     std::ofstream report_file(file_path);
@@ -40,6 +42,7 @@ void HtmlReportGenerator::generateInitialGridReport(const Grid& grid, const std:
     report_file << grid.toHtmlString();
     writeHtmlFooter(report_file);
 }
+
 void HtmlReportGenerator::generateSolverReport(const Solver& solver, const std::string& path) {
     std::string file_path = path + "/" + solver.getName() + "_Report.html";
     std::ofstream report_file(file_path);
@@ -74,18 +77,19 @@ void HtmlReportGenerator::generateSummaryReport(const std::vector<Result>& resul
     std::vector<std::string> static_rl_solvers = {"QLearning", "SARSA", "ActorCritic"};
     std::vector<std::string> dynamic_dp_solvers = {"DynamicBIDPSim", "DynamicFIDPSim", "DynamicAVISim", "DynamicAPISim"};
     std::vector<std::string> dynamic_rl_solvers = {"DynamicQLearningSim", "DynamicSARSASim", "DynamicActorCriticSim"};
+    std::vector<std::string> hybrid_solvers = {"HybridDPRLSim", "AdaptiveCostSim", "InterlacedSim", "HierarchicalSim", "PolicyBlendingSim"};
 
     report_file << "<table>\n";
     
     report_file << "<thead><tr><th rowspan='2'>Algorithm</th>";
     for(const auto& scn : scenarios){
-        report_file << "<th colspan='4'>" << scn << "</th>";
+        report_file << "<th colspan='5'>" << scn << "</th>";
     }
     report_file << "</tr>\n";
 
     report_file << "<tr>";
     for(size_t i = 0; i < scenarios.size(); ++i){
-        report_file << "<th>Smoke</th><th>Time</th><th>Dist</th><th>W. Cost</th>";
+        report_file << "<th>Smoke</th><th>Time</th><th>Dist</th><th>W. Cost</th><th>Exec. Time (ms)</th>";
     }
     report_file << "</tr></thead>\n<tbody>";
 
@@ -98,34 +102,37 @@ void HtmlReportGenerator::generateSummaryReport(const std::vector<Result>& resul
                 });
                 if(it != results.end()){
                     if (it->cost.distance == MAX_COST) {
-                        report_file << "<td colspan='4'>FAILURE / N/A</td>";
+                        report_file << "<td colspan='5'>FAILURE / N/A</td>";
                     } else {
                         report_file << "<td>" << it->cost.smoke << "</td>";
                         report_file << "<td>" << it->cost.time << "</td>";
                         report_file << "<td>" << it->cost.distance << "</td>";
                         report_file << "<td>" << static_cast<int>(it->weighted_cost) << "</td>";
+                        report_file << "<td>" << it->execution_time << "</td>";
                     }
                 } else {
-                     report_file << "<td colspan='4'>Not Run</td>";
+                     report_file << "<td colspan='5'>Not Run</td>";
                 }
             }
             report_file << "</tr>\n";
         }
     };
 
-    report_file << "<tr><td colspan='" << (1 + scenarios.size() * 4) << "' class='row-header'>Static Planners (Model-Based DP)</td></tr>";
+    report_file << "<tr><td colspan='" << (1 + scenarios.size() * 5) << "' class='row-header'>Static Planners (Model-Based DP)</td></tr>";
     write_solver_rows(static_dp_solvers);
     
-    report_file << "<tr><td colspan='" << (1 + scenarios.size() * 4) << "' class='row-header'>Static Planners (Model-Free RL Training)</td></tr>";
+    report_file << "<tr><td colspan='" << (1 + scenarios.size() * 5) << "' class='row-header'>Static Planners (Model-Free RL Training)</td></tr>";
     write_solver_rows(static_rl_solvers);
 
-    report_file << "<tr><td colspan='" << (1 + scenarios.size() * 4) << "' class='row-header'>Dynamic Simulators (DP-Based)</td></tr>";
+    report_file << "<tr><td colspan='" << (1 + scenarios.size() * 5) << "' class='row-header'>Dynamic Simulators (DP-Based)</td></tr>";
     write_solver_rows(dynamic_dp_solvers);
 
-    report_file << "<tr><td colspan='" << (1 + scenarios.size() * 4) << "' class='row-header'>Dynamic Simulators (RL-Based)</td></tr>";
+    report_file << "<tr><td colspan='" << (1 + scenarios.size() * 5) << "' class='row-header'>Dynamic Simulators (RL-Based)</td></tr>";
     write_solver_rows(dynamic_rl_solvers);
+
+    report_file << "<tr><td colspan='" << (1 + scenarios.size() * 5) << "' class='row-header'>EnMod-DP Hybrid Approaches</td></tr>";
+    write_solver_rows(hybrid_solvers);
 
     report_file << "</tbody></table>\n";
     writeHtmlFooter(report_file);
 }
-

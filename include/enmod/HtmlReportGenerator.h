@@ -10,9 +10,9 @@ struct Result {
     std::string scenario_name;
     std::string solver_name;
     Cost cost;
-    double weighted_cost; // NEW: Added for the single score
+    double weighted_cost;
+    double execution_time; 
 };
-
 
 class HtmlReportGenerator {
 public:
@@ -22,4 +22,3 @@ public:
 };
 
 #endif // ENMOD_HTML_REPORT_GENERATOR_H
-

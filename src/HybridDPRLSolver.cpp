@@ -1,13 +1,16 @@
-#include "enmod/InterlacedSolver.h"
-#include "enmod/BIDP.h"
+#include "enmod/HybridDPRLSolver.h"
 #include "enmod/Logger.h"
 #include <algorithm>
 #include <cmath>
 
-InterlacedSolver::InterlacedSolver(const Grid& grid_ref) 
-    : Solver(grid_ref, "InterlacedSim"), current_mode(EvacuationMode::NORMAL) {}
+HybridDPRLSolver::HybridDPRLSolver(const Grid& grid_ref) 
+    : Solver(grid_ref, "HybridDPRLSim"), current_mode(EvacuationMode::NORMAL) {
+    // Pre-train the RL agent
+    rl_solver = std::make_unique<QLearningSolver>(grid_ref);
+    rl_solver->train(5000); // Pre-train with 5000 episodes
+}
 
-void InterlacedSolver::assessThreatAndSetMode(const Position& current_pos, const Grid& current_grid) {
+void HybridDPRLSolver::assessThreatAndSetMode(const Position& current_pos, const Grid& current_grid) {
     const auto& events = current_grid.getConfig().value("dynamic_events", json::array());
     current_mode = EvacuationMode::NORMAL; 
 
@@ -36,7 +39,8 @@ void InterlacedSolver::assessThreatAndSetMode(const Position& current_pos, const
     }
 }
 
-void InterlacedSolver::run() {
+
+void HybridDPRLSolver::run() {
     Grid dynamic_grid = grid;
     Position current_pos = dynamic_grid.getStartPosition();
     total_cost = {0, 0, 0};
@@ -59,38 +63,47 @@ void InterlacedSolver::run() {
             break;
         }
 
-        BIDP step_planner(dynamic_grid);
-        step_planner.run();
-        const auto& cost_map = step_planner.getCostMap();
-        
-        Cost best_neighbor_cost = cost_map[current_pos.row][current_pos.col];
-        Position best_next_move = current_pos;
+        Position next_move = current_pos;
         std::string action = "STAY";
-        
-        int dr[] = {-1, 1, 0, 0};
-        int dc[] = {0, 0, -1, 1};
-        std::string actions[] = {"UP", "DOWN", "LEFT", "RIGHT"};
 
-        for (int i = 0; i < 4; ++i) {
-            Position neighbor = {current_pos.row + dr[i], current_pos.col + dc[i]};
-            if (dynamic_grid.isWalkable(neighbor.row, neighbor.col)) {
-                if (cost_map[neighbor.row][neighbor.col] < best_neighbor_cost) {
-                    best_neighbor_cost = cost_map[neighbor.row][neighbor.col];
-                    best_next_move = neighbor;
-                    action = actions[i];
+        if (current_mode == EvacuationMode::PANIC) {
+            // Use RL solver in high-threat situations
+            Direction move_dir = rl_solver->chooseAction(current_pos);
+            next_move = dynamic_grid.getNextPosition(current_pos, move_dir);
+            if (move_dir == Direction::UP) action = "UP (RL)";
+            else if (move_dir == Direction::DOWN) action = "DOWN (RL)";
+            else if (move_dir == Direction::LEFT) action = "LEFT (RL)";
+            else if (move_dir == Direction::RIGHT) action = "RIGHT (RL)";
+
+        } else {
+            // Use BIDP solver for normal and alert situations
+            BIDP step_planner(dynamic_grid);
+            step_planner.run();
+            const auto& cost_map = step_planner.getCostMap();
+            
+            Cost best_neighbor_cost = cost_map[current_pos.row][current_pos.col];
+            Position best_next_move = current_pos;
+            
+            int dr[] = {-1, 1, 0, 0};
+            int dc[] = {0, 0, -1, 1};
+            std::string actions[] = {"UP (DP)", "DOWN (DP)", "LEFT (DP)", "RIGHT (DP)"};
+
+            for (int i = 0; i < 4; ++i) {
+                Position neighbor = {current_pos.row + dr[i], current_pos.col + dc[i]};
+                if (dynamic_grid.isWalkable(neighbor.row, neighbor.col)) {
+                    if (cost_map[neighbor.row][neighbor.col] < best_neighbor_cost) {
+                        best_neighbor_cost = cost_map[neighbor.row][neighbor.col];
+                        best_next_move = neighbor;
+                        action = actions[i];
+                    }
                 }
             }
+            next_move = best_next_move;
         }
         
-        if(best_next_move == current_pos && cost_map[current_pos.row][current_pos.col].distance == MAX_COST){
-            history.back().action = "FAILURE: No path found.";
-            total_cost = {};
-            break;
-        }
-
         history.back().action = action;
         total_cost = total_cost + dynamic_grid.getMoveCost(current_pos);
-        current_pos = best_next_move;
+        current_pos = next_move;
     }
      if(history.empty() || (history.back().action.find("SUCCESS") == std::string::npos && history.back().action.find("FAILURE") == std::string::npos)){
          history.push_back({(int)history.size(), dynamic_grid, current_pos, "FAILURE: Timed out.", total_cost, current_mode});
@@ -99,10 +112,10 @@ void InterlacedSolver::run() {
      Cost::current_mode = EvacuationMode::NORMAL;
 }
 
-Cost InterlacedSolver::getEvacuationCost() const { return total_cost; }
+Cost HybridDPRLSolver::getEvacuationCost() const { return total_cost; }
 
-void InterlacedSolver::generateReport(std::ofstream& report_file) const {
-    report_file << "<h2>Simulation History (Interlaced BIDP Solver)</h2>\n";
+void HybridDPRLSolver::generateReport(std::ofstream& report_file) const {
+    report_file << "<h2>Simulation History (Hybrid DP-RL Solver)</h2>\n";
     for (const auto& step : history) {
         std::string mode_str;
         switch(step.mode){

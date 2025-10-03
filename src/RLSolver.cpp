@@ -57,7 +57,7 @@ void RLSolver::generatePolicyFromValueTable() {
                 auto it = value_table.find(pos);
                 if (it != value_table.end()) {
                     const auto& values = it->second;
-                    int best_action_idx = std::distance(values.begin(), std::max_element(values.begin(), values.end()));
+                    int best_action_idx = static_cast<int>(std::distance(values.begin(), std::max_element(values.begin(), values.end())));
                     policy.setDirection(pos, static_cast<Direction>(best_action_idx));
                 } else {
                     policy.setDirection(pos, Direction::NONE);
@@ -66,4 +66,3 @@ void RLSolver::generatePolicyFromValueTable() {
         }
     }
 }
-

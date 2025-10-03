@@ -1,13 +1,13 @@
-#include "enmod/InterlacedSolver.h"
+#include "enmod/AdaptiveCostSolver.h"
 #include "enmod/BIDP.h"
 #include "enmod/Logger.h"
 #include <algorithm>
 #include <cmath>
 
-InterlacedSolver::InterlacedSolver(const Grid& grid_ref) 
-    : Solver(grid_ref, "InterlacedSim"), current_mode(EvacuationMode::NORMAL) {}
+AdaptiveCostSolver::AdaptiveCostSolver(const Grid& grid_ref) 
+    : Solver(grid_ref, "AdaptiveCostSim"), current_mode(EvacuationMode::NORMAL) {}
 
-void InterlacedSolver::assessThreatAndSetMode(const Position& current_pos, const Grid& current_grid) {
+void AdaptiveCostSolver::assessThreatAndSetMode(const Position& current_pos, const Grid& current_grid) {
     const auto& events = current_grid.getConfig().value("dynamic_events", json::array());
     current_mode = EvacuationMode::NORMAL; 
 
@@ -36,7 +36,7 @@ void InterlacedSolver::assessThreatAndSetMode(const Position& current_pos, const
     }
 }
 
-void InterlacedSolver::run() {
+void AdaptiveCostSolver::run() {
     Grid dynamic_grid = grid;
     Position current_pos = dynamic_grid.getStartPosition();
     total_cost = {0, 0, 0};
@@ -99,10 +99,10 @@ void InterlacedSolver::run() {
      Cost::current_mode = EvacuationMode::NORMAL;
 }
 
-Cost InterlacedSolver::getEvacuationCost() const { return total_cost; }
+Cost AdaptiveCostSolver::getEvacuationCost() const { return total_cost; }
 
-void InterlacedSolver::generateReport(std::ofstream& report_file) const {
-    report_file << "<h2>Simulation History (Interlaced BIDP Solver)</h2>\n";
+void AdaptiveCostSolver::generateReport(std::ofstream& report_file) const {
+    report_file << "<h2>Simulation History (Adaptive Cost Solver)</h2>\n";
     for (const auto& step : history) {
         std::string mode_str;
         switch(step.mode){

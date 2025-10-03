@@ -3,15 +3,28 @@
 #include "enmod/Grid.h"
 #include "enmod/Solver.h"
 #include "enmod/HtmlReportGenerator.h"
-// DP Solvers
+// Static DP Solvers
+#include "enmod/BIDP.h"
+#include "enmod/FIDP.h"
+#include "enmod/API.h"
+// Dynamic DP Solvers
 #include "enmod/DynamicBIDPSolver.h" 
 #include "enmod/DynamicAPISolver.h"
 #include "enmod/DynamicFIDPSolver.h"
 #include "enmod/DynamicAVISolver.h"
-// RL Solvers
+// RL Solvers (Static and Dynamic headers)
+#include "enmod/QLearningSolver.h"
+#include "enmod/SARSASolver.h"
+#include "enmod/ActorCriticSolver.h"
 #include "enmod/DynamicQLearningSolver.h"
 #include "enmod/DynamicSARSASolver.h"
 #include "enmod/DynamicActorCriticSolver.h"
+// EnMod-DP Solvers
+#include "enmod/HybridDPRLSolver.h"
+#include "enmod/AdaptiveCostSolver.h"
+#include "enmod/InterlacedSolver.h"
+#include "enmod/HierarchicalSolver.h"
+#include "enmod/PolicyBlendingSolver.h"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -34,6 +47,16 @@ void runScenario(const json& config, const std::string& report_path, std::vector
     HtmlReportGenerator::generateInitialGridReport(grid, scenario_report_path);
 
     std::vector<std::unique_ptr<Solver>> solvers;
+    
+    // --- Static Planners ---
+    solvers.push_back(std::make_unique<BIDP>(grid));
+    solvers.push_back(std::make_unique<FIDP>(grid));
+    solvers.push_back(std::make_unique<API>(grid));
+    solvers.push_back(std::make_unique<QLearningSolver>(grid));
+    solvers.push_back(std::make_unique<SARSASolver>(grid));
+    solvers.push_back(std::make_unique<ActorCriticSolver>(grid));
+
+    // --- Dynamic Simulators ---
     solvers.push_back(std::make_unique<DynamicBIDPSolver>(grid));
     solvers.push_back(std::make_unique<DynamicFIDPSolver>(grid));
     solvers.push_back(std::make_unique<DynamicAVISolver>(grid));
@@ -42,14 +65,24 @@ void runScenario(const json& config, const std::string& report_path, std::vector
     solvers.push_back(std::make_unique<DynamicSARSASolver>(grid));
     solvers.push_back(std::make_unique<DynamicActorCriticSolver>(grid));
 
+    // --- EnMod-DP Hybrid Approaches ---
+    solvers.push_back(std::make_unique<HybridDPRLSolver>(grid));
+    solvers.push_back(std::make_unique<AdaptiveCostSolver>(grid));
+    solvers.push_back(std::make_unique<InterlacedSolver>(grid));
+    solvers.push_back(std::make_unique<HierarchicalSolver>(grid));
+    solvers.push_back(std::make_unique<PolicyBlendingSolver>(grid));
+
     for (const auto& solver : solvers) {
         std::cout << "  - Running " << solver->getName() << "... ";
+        auto start_time = std::chrono::high_resolution_clock::now();
         solver->run();
-        std::cout << "Done.\n";
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> execution_time = end_time - start_time;
+        std::cout << "Done (" << execution_time.count() << " ms).\n";
         
         Cost final_cost = solver->getEvacuationCost();
         double weighted_cost = (final_cost.distance == MAX_COST) ? std::numeric_limits<double>::infinity() : (final_cost.smoke * 1000) + (final_cost.time * 10) + (final_cost.distance * 1);
-        results.push_back({grid.getName(), solver->getName(), final_cost, weighted_cost});
+        results.push_back({grid.getName(), solver->getName(), final_cost, weighted_cost, execution_time.count()});
         HtmlReportGenerator::generateSolverReport(*solver, scenario_report_path);
     }
 }
@@ -91,4 +124,3 @@ int main() {
     }
     return 0;
 }
-

@@ -11,6 +11,10 @@ void SARSASolver::run() {
     generatePolicyFromValueTable();
 }
 
+void SARSASolver::train(int episodes) {
+    RLSolver::train(episodes);
+}
+
 Direction SARSASolver::chooseAction(const Position& state) {
     static std::mt19937 rng(static_cast<unsigned int>(std::chrono::steady_clock::now().time_since_epoch().count()));
     std::uniform_real_distribution<> dist(0.0, 1.0);
@@ -59,4 +63,3 @@ void SARSASolver::generateReport(std::ofstream& report_file) const {
     report_file << "<p>This policy was learned over 5000 episodes.</p>\n";
     report_file << grid.toHtmlStringWithPolicy(policy);
 }
-
