@@ -25,6 +25,8 @@
 #include "enmod/InterlacedSolver.h"
 #include "enmod/HierarchicalSolver.h"
 #include "enmod/PolicyBlendingSolver.h"
+// CPS simulator
+#include "enmod/CPSController.h"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -101,25 +103,27 @@ int main() {
         std::cout << "Log file created at: logs/enmod_simulation.log\n";
         std::cout << "Reports will be generated in: " << report_root_path << "\n";
 
+         // --- Run the standard comparison of all solvers ---
         std::vector<json> scenarios;
-        scenarios.push_back(ScenarioGenerator::generate(5, "5x5"));
         scenarios.push_back(ScenarioGenerator::generate(10, "10x10"));
-        scenarios.push_back(ScenarioGenerator::generate(15, "15x15"));
-
         std::vector<Result> all_results;
         for (const auto& config : scenarios) {
             runScenario(config, report_root_path, all_results);
         }
         
         HtmlReportGenerator::generateSummaryReport(all_results, report_root_path);
-        std::cout << "\nSimulation complete. Final summary written to " << report_root_path << "/_Summary_Report.html\n";
+        std::cout << "\nComparison simulation complete. Summary written to " << report_root_path << "/_Summary_Report.html\n";
+
+        // --- Run the new real-time CPS simulation ---
+        json cps_scenario = ScenarioGenerator::generate(15, "15x15_CPS");
+        CPSController cps_controller(cps_scenario);
+        cps_controller.run_simulation();
 
         Logger::log(LogLevel::INFO, "Application Finished Successfully");
         Logger::close();
     } catch (const std::exception& e) {
         std::cerr << "A critical error occurred: " << e.what() << std::endl;
         Logger::log(LogLevel::ERROR, "A critical error occurred: " + std::string(e.what()));
-        Logger::close();
         return 1;
     }
     return 0;

@@ -40,76 +40,55 @@ void HybridDPRLSolver::assessThreatAndSetMode(const Position& current_pos, const
 }
 
 
+Direction HybridDPRLSolver::getNextMove(const Position& current_pos, const Grid& current_grid) {
+    assessThreatAndSetMode(current_pos, current_grid);
+    Cost::current_mode = current_mode;
+
+    if (current_mode == EvacuationMode::PANIC) {
+        return rl_solver->chooseAction(current_pos);
+    } 
+    else {
+        BIDP step_planner(current_grid);
+        step_planner.run();
+        const auto& cost_map = step_planner.getCostMap();
+        
+        Cost best_neighbor_cost = cost_map[current_pos.row][current_pos.col];
+        Direction best_direction = Direction::STAY;
+        
+        int dr[] = {-1, 1, 0, 0};
+        int dc[] = {0, 0, -1, 1};
+        Direction dirs[] = {Direction::UP, Direction::DOWN, Direction::LEFT, Direction::RIGHT};
+
+        for (int i = 0; i < 4; ++i) {
+            Position neighbor = {current_pos.row + dr[i], current_pos.col + dc[i]};
+            if (current_grid.isWalkable(neighbor.row, neighbor.col)) {
+                if (cost_map[neighbor.row][neighbor.col] < best_neighbor_cost) {
+                    best_neighbor_cost = cost_map[neighbor.row][neighbor.col];
+                    best_direction = dirs[i];
+                }
+            }
+        }
+        return best_direction;
+    }
+}
+
 void HybridDPRLSolver::run() {
+    // The original run loop is now effectively handled by the CPSController.
+    // This function can be kept for compatibility with the old test harness.
+    // For a real CPS, this function would not be used.
     Grid dynamic_grid = grid;
     Position current_pos = dynamic_grid.getStartPosition();
     total_cost = {0, 0, 0};
-    history.clear();
-
-    const auto& events = dynamic_grid.getConfig().value("dynamic_events", json::array());
-
-    for (int t = 0; t < 2 * (dynamic_grid.getRows() * dynamic_grid.getCols()); ++t) {
-        for (const auto& event_cfg : events) {
-            if (event_cfg.value("time_step", -1) == t) {
-                dynamic_grid.addHazard(event_cfg);
-            }
-        }
-        assessThreatAndSetMode(current_pos, dynamic_grid);
-        Cost::current_mode = current_mode;
-        history.push_back({t, dynamic_grid, current_pos, "Planning...", total_cost, current_mode});
+    
+    for (int t = 0; t < 2 * (grid.getRows() * grid.getCols()); ++t) {
+        Direction next_move = getNextMove(current_pos, dynamic_grid);
+        total_cost = total_cost + dynamic_grid.getMoveCost(current_pos);
+        current_pos = dynamic_grid.getNextPosition(current_pos, next_move);
 
         if (dynamic_grid.isExit(current_pos.row, current_pos.col)) {
-            history.back().action = "SUCCESS: Reached Exit.";
             break;
         }
-
-        Position next_move = current_pos;
-        std::string action = "STAY";
-
-        if (current_mode == EvacuationMode::PANIC) {
-            // Use RL solver in high-threat situations
-            Direction move_dir = rl_solver->chooseAction(current_pos);
-            next_move = dynamic_grid.getNextPosition(current_pos, move_dir);
-            if (move_dir == Direction::UP) action = "UP (RL)";
-            else if (move_dir == Direction::DOWN) action = "DOWN (RL)";
-            else if (move_dir == Direction::LEFT) action = "LEFT (RL)";
-            else if (move_dir == Direction::RIGHT) action = "RIGHT (RL)";
-
-        } else {
-            // Use BIDP solver for normal and alert situations
-            BIDP step_planner(dynamic_grid);
-            step_planner.run();
-            const auto& cost_map = step_planner.getCostMap();
-            
-            Cost best_neighbor_cost = cost_map[current_pos.row][current_pos.col];
-            Position best_next_move = current_pos;
-            
-            int dr[] = {-1, 1, 0, 0};
-            int dc[] = {0, 0, -1, 1};
-            std::string actions[] = {"UP (DP)", "DOWN (DP)", "LEFT (DP)", "RIGHT (DP)"};
-
-            for (int i = 0; i < 4; ++i) {
-                Position neighbor = {current_pos.row + dr[i], current_pos.col + dc[i]};
-                if (dynamic_grid.isWalkable(neighbor.row, neighbor.col)) {
-                    if (cost_map[neighbor.row][neighbor.col] < best_neighbor_cost) {
-                        best_neighbor_cost = cost_map[neighbor.row][neighbor.col];
-                        best_next_move = neighbor;
-                        action = actions[i];
-                    }
-                }
-            }
-            next_move = best_next_move;
-        }
-        
-        history.back().action = action;
-        total_cost = total_cost + dynamic_grid.getMoveCost(current_pos);
-        current_pos = next_move;
     }
-     if(history.empty() || (history.back().action.find("SUCCESS") == std::string::npos && history.back().action.find("FAILURE") == std::string::npos)){
-         history.push_back({(int)history.size(), dynamic_grid, current_pos, "FAILURE: Timed out.", total_cost, current_mode});
-         total_cost = {};
-     }
-     Cost::current_mode = EvacuationMode::NORMAL;
 }
 
 Cost HybridDPRLSolver::getEvacuationCost() const { return total_cost; }
