@@ -41,6 +41,7 @@
         std::string toHtmlStringWithPath(const std::vector<Position>& path) const;
         std::string toHtmlStringWithPolicy(const Policy& policy) const;
         std::string toHtmlStringWithAgent(const Position& agent_pos) const;
+         void setCellUnwalkable(const Position& pos);
     
     private:
         std::string grid_name;

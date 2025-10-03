@@ -8,7 +8,7 @@
 #include "enmod/FIDP.h"
 #include "enmod/API.h"
 // Dynamic DP Solvers
-#include "enmod/DynamicBIDPSolver.h" 
+#include "enmod/DynamicBIDPSolver.h"
 #include "enmod/DynamicAPISolver.h"
 #include "enmod/DynamicFIDPSolver.h"
 #include "enmod/DynamicAVISolver.h"
@@ -25,9 +25,9 @@
 #include "enmod/InterlacedSolver.h"
 #include "enmod/HierarchicalSolver.h"
 #include "enmod/PolicyBlendingSolver.h"
-// CPS simulator
-#include "enmod/CPSController.h"
+// Multi-Agent CPS
 #include "enmod/MultiAgentCPSController.h"
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -39,18 +39,18 @@
 #include <sstream>
 
 #ifdef _MSC_VER
-#pragma warning(disable : 4996) 
+#pragma warning(disable : 4996)
 #endif
 
-void runScenario(const json& config, const std::string& report_path, std::vector<Result>& results) {
+void runComparisonScenario(const json& config, const std::string& report_path, std::vector<Result>& results) {
     Grid grid(config);
-    std::cout << "\n===== Running Scenario: " << grid.getName() << " (" << grid.getRows() << "x" << grid.getCols() << ") =====\n";
+    std::cout << "\n===== Running Comparison Scenario: " << grid.getName() << " (" << grid.getRows() << "x" << grid.getCols() << ") =====\n";
     std::string scenario_report_path = report_path + "/" + grid.getName();
     std::filesystem::create_directory(scenario_report_path);
     HtmlReportGenerator::generateInitialGridReport(grid, scenario_report_path);
 
     std::vector<std::unique_ptr<Solver>> solvers;
-    
+
     // --- Static Planners ---
     solvers.push_back(std::make_unique<BIDP>(grid));
     solvers.push_back(std::make_unique<FIDP>(grid));
@@ -75,14 +75,15 @@ void runScenario(const json& config, const std::string& report_path, std::vector
     solvers.push_back(std::make_unique<HierarchicalSolver>(grid));
     solvers.push_back(std::make_unique<PolicyBlendingSolver>(grid));
 
+
     for (const auto& solver : solvers) {
         std::cout << "  - Running " << solver->getName() << "... ";
         auto start_time = std::chrono::high_resolution_clock::now();
         solver->run();
         auto end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> execution_time = end_time - start_time;
-        std::cout << "Done (" << execution_time.count() << " ms).\n";
-        
+        std::cout << "Done (" << std::fixed << std::setprecision(2) << execution_time.count() << " ms).\n";
+
         Cost final_cost = solver->getEvacuationCost();
         double weighted_cost = (final_cost.distance == MAX_COST) ? std::numeric_limits<double>::infinity() : (final_cost.smoke * 1000) + (final_cost.time * 10) + (final_cost.distance * 1);
         results.push_back({grid.getName(), solver->getName(), final_cost, weighted_cost, execution_time.count()});
@@ -104,10 +105,26 @@ int main() {
         std::cout << "Log file created at: logs/enmod_simulation.log\n";
         std::cout << "Reports will be generated in: " << report_root_path << "\n";
 
-        // --- Run the new real-time Multi-Agent CPS simulation ---
-        json cps_scenario = ScenarioGenerator::generate(20, "20x20_MultiAgent_CPS");
-        MultiAgentCPSController cps_controller(cps_scenario, report_root_path, 5); // 5 agents
-        cps_controller.run_simulation();
+        // --- PHASE 1: Run the comprehensive comparison of all solvers ---
+        std::vector<json> scenarios;
+        scenarios.push_back(ScenarioGenerator::generate(5, "5x5"));
+        scenarios.push_back(ScenarioGenerator::generate(10, "10x10"));
+        scenarios.push_back(ScenarioGenerator::generate(15, "15x15"));
+
+        std::vector<Result> all_results;
+        for (const auto& config : scenarios) {
+            runComparisonScenario(config, report_root_path, all_results);
+        }
+
+        HtmlReportGenerator::generateSummaryReport(all_results, report_root_path);
+        std::cout << "\nComparison simulation complete. Summary written to " << report_root_path << "/_Summary_Report.html\n";
+
+        // --- PHASE 2: Run the multi-agent simulation with the best hybrid solver ---
+        std::cout << "\n--- Starting Multi-Agent Simulation with HybridDPRLSolver ---\n";
+        for(const auto& config : scenarios) {
+            MultiAgentCPSController cps_controller(config, report_root_path + "/" + config["name"].get<std::string>(), 5);
+            cps_controller.run_simulation();
+        }
 
         Logger::log(LogLevel::INFO, "Application Finished Successfully");
         Logger::close();

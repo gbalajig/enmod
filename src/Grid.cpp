@@ -172,4 +172,11 @@ std::string Grid::toHtmlStringWithAgent(const Position& agent_pos) const {
     ss << "</tbody></table>";
     return ss.str();
 }
-
+void Grid::setCellUnwalkable(const Position& pos) {
+    if (isValid(pos.row, pos.col)) {
+        // Ensure we don't block an exit
+        if (grid_map[pos.row][pos.col] != CellType::EXIT) {
+            grid_map[pos.row][pos.col] = CellType::WALL;
+        }
+    }
+}
